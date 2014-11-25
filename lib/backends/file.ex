@@ -27,8 +27,8 @@ defmodule Logger.Backends.File do
 
 
   def handle_event({level, _gl, {Logger, msg, ts, md}}, %{level: min_level, metadata: metadata} = state) do
-    data = Dict.take(metadata, md)
-    log_enabled = is_nil(min_level) or Logger.compare_levels(level, min_level) != :lt and Dict.size(data) == length(md)
+    data = Dict.take(md, metadata)
+    log_enabled = is_nil(min_level) or Logger.compare_levels(level, min_level) != :lt and Dict.size(data) == length(metadata)
     
     if log_enabled do
       log_event(level, msg, ts, data, state)
@@ -44,27 +44,26 @@ defmodule Logger.Backends.File do
     {:ok, state}
   end
 
-  defp log_event(level, msg, ts, md, %{path: path, io_device: nil} = state) when is_binary(path) do
+  defp log_event(level, msg, ts, md, %{io_device: nil} = state) do
     case open_log(level, msg, ts, md, state) do
       {:ok, io_device, inode} ->
         log_event(level, msg, ts, md, %{state | io_device: io_device, inode: inode})
-      _other ->
+      _ ->
         {:ok, state}
     end
   end
 
-  defp log_event(level, msg, ts, md, %{path: path, io_device: io_device, inode: inode} = state) when is_binary(path) do
+  defp log_event(level, msg, ts, md, %{io_device: io_device, inode: inode, format: format} = state) do
     if !is_nil(inode) and inode == inode(level, msg, ts, md, state) do
-      IO.write(io_device, format_event(level, msg, ts, md, state))
+      IO.write(io_device, format(format, level, msg, ts, md))
       {:ok, state}
     else
       log_event(level, msg, ts, md, %{state | io_device: nil, inode: nil})
     end
   end
 
-
-  defp open_log(level, msg, ts, md, state = %{open_opts: opts}) do
-    path = format_path(level, msg, ts, md, state)
+  defp open_log(level, msg, ts, md, state = %{open_opts: opts, path: path}) do
+    path = format(path, level, msg, ts, md) |> List.to_string
     case (path |> Path.dirname |> File.mkdir_p) do
       :ok ->
         case File.open(path, [:append, :utf8] ++ opts) do
@@ -75,8 +74,8 @@ defmodule Logger.Backends.File do
     end
   end
 
-  defp inode(level, msg, ts, md, state) do
-    path = format_path(level, msg, ts, md, state)
+  defp inode(level, msg, ts, md, state = %{path: path}) do
+    path = format(path, level, msg, ts, md) |> List.to_string
     case File.stat(path) do
       {:ok, %File.Stat{inode: inode}} -> inode
       {:error, _} -> nil
@@ -84,30 +83,42 @@ defmodule Logger.Backends.File do
   end
 
 
-  defp format_event(level, msg, ts, md, %{format: format}) do
-    Logger.Formatter.format(format, level, msg, ts, md)
-  end
-
-  defp format_path(level, msg, {{year, month, day} = date, {hour, min, sec, msec} = time}, md, %{path: path}) do
+  def format(text, level, msg, {{year, month, day} = date, {hour, min, sec, msec} = time}, md) do
     data = Dict.merge(%{
+      message: msg,
       level: level, 
-      date: Logger.Utils.format_date(date), 
-      year: Logger.Utils.pad2(year),
-      month: Logger.Utils.pad2(month),
-      day: Logger.Utils.pad2(day),
-      time: Logger.Utils.format_date(time),
-      hour: Logger.Utils.pad2(hour),
-      min: Logger.Utils.pad2(min),
-      sec: Logger.Utils.pad2(sec),
+      date: format_date(date), 
+      year: pad2(year),
+      month: pad2(month),
+      day: pad2(day),
+      time: format_time(time),
+      hour: pad2(hour),
+      min: pad2(min),
+      sec: pad2(sec),
+      metadata: Enum.map(md, fn({x, y})-> '#{x}=#{y};' end)
     }, md)
 
-    Enum.map(path, &output(&1, data))
+    Enum.map(text, &output(&1, data))
   end
 
-  defp output(atom, data) when is_atom(atom) do
-    '#{data[atom]}'
-  end
+  defp format_date({y,m,d}), do: '#{y}-#{pad2(m)}-#{pad2(d)}'
+  defp format_time({m,h,s,_}), do: '#{pad2(m)}-#{pad2(h)}-#{pad2(s)}'
+
+  defp pad2(x) when x < 10, do: '0#{x}'
+  defp pad2(x), do: '#{x}'
+
+  defp output(atom, data) when is_atom(atom), do: '#{data[atom]}'
   defp output(any, _), do: any
+
+
+  def compile(str) do
+    for part <- Regex.split(~r/(?<head>)\$[a-z]+(?<tail>)/, str, on: [:head, :tail], trim: true) do
+      case part do
+        "$" <> code -> String.to_existing_atom(code)
+        _ -> part
+      end
+    end
+  end
 
 
   defp configure(name, opts) do
@@ -117,8 +128,8 @@ defmodule Logger.Backends.File do
 
     level     = Keyword.get(opts, :level)
     metadata  = Keyword.get(opts, :metadata, [])
-    format    = Keyword.get(opts, :format, @default_format) |> Logger.Formatter.compile
-    path      = Keyword.get(opts, :path) |> Logger.Formatter.compile
+    format    = Keyword.get(opts, :format, @default_format) |> compile
+    path      = Keyword.get(opts, :path) |> compile
     open_opts = Keyword.get(opts, :opts, [])
 
     %{name: name, path: path, io_device: nil, inode: nil, 
