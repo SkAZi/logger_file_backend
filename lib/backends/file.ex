@@ -95,7 +95,7 @@ defmodule Logger.Backends.File do
       hour: pad2(hour),
       min: pad2(min),
       sec: pad2(sec),
-      metadata: Enum.map(md, fn({x, y})-> '#{x}=#{y};' end)
+      metadata: Enum.map(md, fn({x, y})-> '#{x}=#{inspect y};' end)
     }, md)
 
     Enum.map(text, &output(&1, data))
@@ -110,8 +110,8 @@ defmodule Logger.Backends.File do
   defp output(atom, data) when is_atom(atom) do
     case data[atom] do
       nil -> ''
-      val when is_binary(val) -> '#{data[atom]}'
-      _ -> '#{inspect data[atom]}'
+      val when is_binary(val) -> '#{val}'
+      val -> '#{inspect val}'
     end
   end
   defp output(any, _), do: any
