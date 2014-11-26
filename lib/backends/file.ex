@@ -112,7 +112,7 @@ defmodule Logger.Backends.File do
 
 
   def compile(str) do
-    for part <- Regex.split(~r/(?<head>)\$[a-z]+(?<tail>)/, str, on: [:head, :tail], trim: true) do
+    for part <- Regex.split(~r/(?<head>)\$[a-z_]+(?<tail>)/, str, on: [:head, :tail], trim: true) do
       case part do
         "$" <> code -> String.to_existing_atom(code)
         _ -> part
