@@ -102,7 +102,7 @@ defmodule Logger.Backends.File do
   end
 
   defp format_date({y,m,d}), do: '#{y}-#{pad2(m)}-#{pad2(d)}'
-  defp format_time({m,h,s,_}), do: '#{pad2(m)}-#{pad2(h)}-#{pad2(s)}'
+  defp format_time({m,h,s,_}), do: '#{pad2(m)}:#{pad2(h)}:#{pad2(s)}'
 
   defp pad2(x) when x < 10, do: '0#{x}'
   defp pad2(x), do: '#{x}'
