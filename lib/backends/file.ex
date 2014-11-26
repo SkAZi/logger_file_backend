@@ -107,7 +107,13 @@ defmodule Logger.Backends.File do
   defp pad2(x) when x < 10, do: '0#{x}'
   defp pad2(x), do: '#{x}'
 
-  defp output(atom, data) when is_atom(atom), do: '#{data[atom]}'
+  defp output(atom, data) when is_atom(atom) do
+    case data[atom] do
+      nil -> ''
+      val when is_binary(val) -> '#{data[atom]}'
+      _ -> '#{inspect data[atom]}'
+    end
+  end
   defp output(any, _), do: any
 
 
