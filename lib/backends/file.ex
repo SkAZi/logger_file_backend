@@ -95,17 +95,17 @@ defmodule Logger.Backends.File do
       hour: pad2(hour),
       min: pad2(min),
       sec: pad2(sec),
-      metadata: Enum.map(md, fn({x, y})-> '#{x}=#{inspect y};' end)
+      metadata: Enum.map(md, fn({x, y})-> "#{x}=#{inspect y};" end)
     }, md)
 
     Enum.map(text, &output(&1, data))
   end
 
-  defp format_date({y,m,d}), do: '#{y}-#{pad2(m)}-#{pad2(d)}'
-  defp format_time({m,h,s,_}), do: '#{pad2(m)}:#{pad2(h)}:#{pad2(s)}'
+  defp format_date({y,m,d}), do: "#{y}-#{pad2(m)}-#{pad2(d)}"
+  defp format_time({m,h,s,_}), do: "#{pad2(m)}:#{pad2(h)}:#{pad2(s)}"
 
-  defp pad2(x) when x < 10, do: '0#{x}'
-  defp pad2(x), do: '#{x}'
+  defp pad2(x) when x < 10, do: "0#{x}"
+  defp pad2(x), do: "#{x}"
 
   defp output(atom, data) when is_atom(atom) do
     case data[atom] do
