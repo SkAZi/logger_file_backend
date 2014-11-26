@@ -26,10 +26,11 @@ defmodule Logger.Backends.File do
   end
 
 
-  def handle_event({level, _gl, {Logger, msg, ts, md}}, %{level: min_level, metadata: metadata} = state) do
+  def handle_event({level, _gl, {Logger, msg, ts, md}}, %{level: min_level, metadata: metadata, tag: tag} = state) do
     data = Dict.take(md, metadata)
-    log_enabled = is_nil(min_level) or Logger.compare_levels(level, min_level) != :lt and Dict.size(data) == length(metadata)
-    
+    log_enabled = is_nil(min_level) or Logger.compare_levels(level, min_level) != :lt
+    log_enabled = log_enabled and (tag == nil or md[:tag] == tag)
+
     if log_enabled do
       log_event(level, msg, ts, data, state)
     else
@@ -137,9 +138,10 @@ defmodule Logger.Backends.File do
     format    = Keyword.get(opts, :format, @default_format) |> compile
     path      = Keyword.get(opts, :path) |> compile
     open_opts = Keyword.get(opts, :opts, [])
+    tag       = Keyword.get(opts, :tag, nil)
 
     %{name: name, path: path, io_device: nil, inode: nil, 
       format: format, level: level, metadata: metadata, 
-      open_opts: open_opts}
+      open_opts: open_opts, tag: tag}
   end
 end
