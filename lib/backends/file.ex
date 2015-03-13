@@ -59,6 +59,7 @@ defmodule Logger.Backends.File do
       IO.write(io_device, format(format, level, msg, ts, md))
       {:ok, state}
     else
+      File.close(io_device)
       log_event(level, msg, ts, md, %{state | io_device: nil, inode: nil})
     end
   end
